@@ -8,45 +8,86 @@
       background-color: #1A1817;
       color: #C85DE9;
       font-family: sans-serif;
-      text-align: center;
       padding: 20px;
+      text-align: center;
     }
 
     .controls {
-      max-width: 500px;
-      margin: 0 auto 20px;
-      text-align: left;
+      max-width: 600px;
+      margin: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
 
     label {
-      display: block;
-      margin-top: 10px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .control-group {
+      background-color: #2A2726;
+      border: 1px solid #C85DE9;
+      border-radius: 12px;
+      padding: 12px;
+      text-align: left;
     }
 
     input, select, textarea, button {
-      background: #2A2726;
+      width: 100%;
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 5px;
+      background-color: #1A1817;
       color: #C85DE9;
       border: 1px solid #C85DE9;
-      padding: 6px;
-      margin-top: 5px;
-      width: 100%;
       box-sizing: border-box;
     }
 
-    input[type="color"], input[type="range"] {
-      padding: 0;
-      height: 32px;
+    input[type="range"] {
+      background: transparent;
     }
 
-    button {
-      margin-top: 20px;
-      cursor: pointer;
+    .color-input-wrapper {
+      position: relative;
+    }
+
+    .color-input-wrapper input[type="color"] {
+      height: 40px;
+      padding: 0;
+      border: none;
+      border-radius: 10px;
+      width: 100%;
+    }
+
+    .color-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-weight: bold;
+      font-size: 14px;
+      pointer-events: none;
     }
 
     canvas {
-      display: block;
-      margin: 20px auto;
+      margin-top: 30px;
       border: 1px solid #C85DE9;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    button {
+      background-color: #C85DE9;
+      color: #1A1817;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.9;
     }
   </style>
 </head>
@@ -55,15 +96,17 @@
 <h1>Image Generator</h1>
 
 <div class="controls">
-  <label>Upload Image:
+
+  <div class="control-group">
+    <label>Upload Image</label>
     <input type="file" id="imageUpload">
-  </label>
+  </div>
 
-  <label>Text for Bar:
+  <div class="control-group">
+    <label>Text for Bar</label>
     <input type="text" id="customText" placeholder="Your caption here">
-  </label>
 
-  <label>Font:
+    <label>Font</label>
     <select id="fontFamily">
       <option value="Arial">Arial</option>
       <option value="Georgia">Georgia</option>
@@ -71,32 +114,60 @@
       <option value="Verdana">Verdana</option>
       <option value="Times New Roman">Times New Roman</option>
     </select>
-  </label>
 
-  <label>Text Size:
-    <input type="number" id="textSize" value="32">
-  </label>
+    <label>Text Size</label>
+    <input type="range" id="textSize" min="10" max="100" value="32">
 
-  <label>Text Color:
-    <input type="color" id="textColor" value="#ffffff">
-  </label>
+    <label>Bar Height/Width</label>
+    <input type="range" id="barHeight" min="30" max="200" value="50">
 
-  <label>Bar Color:
-    <input type="color" id="bgColor" value="#000000">
-  </label>
+    <label>Bar Position</label>
+    <select id="barPosition">
+      <option value="top">Top</option>
+      <option value="bottom">Bottom</option>
+      <option value="left">Left</option>
+      <option value="right">Right</option>
+    </select>
 
-  <label><input type="checkbox" id="italic"> Italic</label>
-  <label><input type="checkbox" id="dropShadow"> Drop Shadow</label>
-  <label><input type="checkbox" id="glow"> Glow</label>
+    <label>Text Color</label>
+    <div class="color-input-wrapper">
+      <input type="color" id="textColor" value="#ffffff" oninput="updateColorLabel(this)">
+      <div class="color-label" id="textColorLabel">#ffffff</div>
+    </div>
+
+    <label>Bar Color</label>
+    <div class="color-input-wrapper">
+      <input type="color" id="barColor" value="#000000" oninput="updateColorLabel(this)">
+      <div class="color-label" id="barColorLabel">#000000</div>
+    </div>
+
+    <label><input type="checkbox" id="italic"> Italic</label>
+    <label><input type="checkbox" id="dropShadow"> Drop Shadow</label>
+    <label><input type="checkbox" id="glow"> Glow</label>
+  </div>
+
+  <div class="control-group">
+    <label>Watermark Text</label>
+    <input type="text" id="watermarkText" placeholder="(Optional)">
+
+    <label>Or Upload Watermark Image</label>
+    <input type="file" id="watermarkImage">
+
+    <label>Watermark Opacity</label>
+    <input type="range" id="watermarkOpacity" min="0" max="1" step="0.1" value="0.5">
+  </div>
+
+  <button onclick="generateImage()">Generate Image</button>
+  <button onclick="downloadImage()">Download Image</button>
 </div>
 
-<button onclick="generateImage()">Generate Image</button>
 <canvas id="canvas" width="800" height="600"></canvas>
 
 <script>
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
   let baseImage = null;
+  let watermarkImg = null;
 
   document.getElementById("imageUpload").addEventListener("change", function (e) {
     const reader = new FileReader();
@@ -108,10 +179,33 @@
     reader.readAsDataURL(e.target.files[0]);
   });
 
+  document.getElementById("watermarkImage").addEventListener("change", function (e) {
+    const reader = new FileReader();
+    reader.onload = function (event) {
+      watermarkImg = new Image();
+      watermarkImg.src = event.target.result;
+    };
+    reader.readAsDataURL(e.target.files[0]);
+  });
+
+  function updateColorLabel(input) {
+    const label = document.getElementById(input.id + "Label");
+    label.textContent = input.value.toUpperCase();
+    const brightness = getBrightness(input.value);
+    label.style.color = brightness > 128 ? "#000" : "#FFF";
+  }
+
+  function getBrightness(hex) {
+    const r = parseInt(hex.substr(1, 2), 16);
+    const g = parseInt(hex.substr(3, 2), 16);
+    const b = parseInt(hex.substr(5, 2), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000;
+  }
+
   function drawBase() {
     if (!baseImage) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(baseImage, 0, 50, canvas.width, canvas.height - 50); // shift down for bar
+    ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
   }
 
   function generateImage() {
@@ -120,31 +214,47 @@
     const text = document.getElementById("customText").value;
     const font = document.getElementById("fontFamily").value;
     const size = parseInt(document.getElementById("textSize").value);
-    const color = document.getElementById("textColor").value;
-    const barColor = document.getElementById("bgColor").value;
+    const textColor = document.getElementById("textColor").value;
+    const barColor = document.getElementById("barColor").value;
+    const barHeight = parseInt(document.getElementById("barHeight").value);
+    const barPos = document.getElementById("barPosition").value;
     const italic = document.getElementById("italic").checked;
     const shadow = document.getElementById("dropShadow").checked;
     const glow = document.getElementById("glow").checked;
+    const wmText = document.getElementById("watermarkText").value;
+    const wmOpacity = parseFloat(document.getElementById("watermarkOpacity").value);
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw bar background
-    ctx.fillStyle = barColor;
-    ctx.fillRect(0, 0, canvas.width, 50);
-
-    // Draw base image shifted down
-    ctx.drawImage(baseImage, 0, 50, canvas.width, canvas.height - 50);
+    // Draw bar and image depending on position
+    if (barPos === "top") {
+      ctx.fillStyle = barColor;
+      ctx.fillRect(0, 0, canvas.width, barHeight);
+      ctx.drawImage(baseImage, 0, barHeight, canvas.width, canvas.height - barHeight);
+    } else if (barPos === "bottom") {
+      ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height - barHeight);
+      ctx.fillStyle = barColor;
+      ctx.fillRect(0, canvas.height - barHeight, canvas.width, barHeight);
+    } else if (barPos === "left") {
+      ctx.fillStyle = barColor;
+      ctx.fillRect(0, 0, barHeight, canvas.height);
+      ctx.drawImage(baseImage, barHeight, 0, canvas.width - barHeight, canvas.height);
+    } else if (barPos === "right") {
+      ctx.drawImage(baseImage, 0, 0, canvas.width - barHeight, canvas.height);
+      ctx.fillStyle = barColor;
+      ctx.fillRect(canvas.width - barHeight, 0, barHeight, canvas.height);
+    }
 
     // Text styling
     let fontStyle = italic ? "italic " : "";
     fontStyle += `${size}px ${font}`;
     ctx.font = fontStyle;
-    ctx.fillStyle = color;
-    ctx.textBaseline = "middle";
+    ctx.fillStyle = textColor;
     ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
 
     if (shadow || glow) {
-      ctx.shadowColor = glow ? color : "#000";
+      ctx.shadowColor = glow ? textColor : "#000";
       ctx.shadowBlur = glow ? 10 : 4;
       ctx.shadowOffsetX = shadow ? 2 : 0;
       ctx.shadowOffsetY = shadow ? 2 : 0;
@@ -152,11 +262,38 @@
       ctx.shadowColor = "transparent";
     }
 
-    // Draw centered text in the bar
-    ctx.fillText(text, canvas.width / 2, 25);
+    let textX = canvas.width / 2;
+    let textY = canvas.height / 2;
 
-    // Reset shadow for future actions
+    if (barPos === "top") textY = barHeight / 2;
+    if (barPos === "bottom") textY = canvas.height - barHeight / 2;
+    if (barPos === "left") { textX = barHeight / 2; ctx.textAlign = "left"; }
+    if (barPos === "right") { textX = canvas.width - barHeight / 2; ctx.textAlign = "right"; }
+
+    ctx.fillText(text, textX, textY);
+
     ctx.shadowColor = "transparent";
+
+    // Watermark
+    ctx.globalAlpha = wmOpacity;
+
+    if (watermarkImg) {
+      const wmW = 100, wmH = 50;
+      ctx.drawImage(watermarkImg, canvas.width - wmW - 10, canvas.height - wmH - 10, wmW, wmH);
+    } else if (wmText) {
+      ctx.font = `italic 16px Arial`;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillText(wmText, canvas.width - 80, canvas.height - 20);
+    }
+
+    ctx.globalAlpha = 1.0;
+  }
+
+  function downloadImage() {
+    const link = document.createElement('a');
+    link.download = 'custom-image.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
   }
 </script>
 

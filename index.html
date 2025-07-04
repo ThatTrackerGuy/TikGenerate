@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Image Generator</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; background: #f4f4f4; padding: 20px; }
+    canvas { border: 1px solid #333; margin-top: 20px; }
+    label { display: block; margin-top: 10px; }
+    .controls { max-width: 500px; margin: auto; text-align: left; }
+  </style>
+</head>
+<body>
+
+<h1>Image Generator</h1>
+<div class="controls">
+  <label>Upload Image: <input type="file" id="imageUpload"></label>
+  
+  <label>Text: <input type="text" id="customText" placeholder="Enter your text"></label>
+  <label>Font: 
+    <select id="fontFamily">
+      <option value="Arial">Arial</option>
+      <option value="Georgia">Georgia</option>
+      <option value="Courier New">Courier New</option>
+      <option value="Verdana">Verdana</option>
+      <option value="Times New Roman">Times New Roman</option>
+    </select>
+  </label>
+  <label>Text Size: <input type="number" id="textSize" value="32"></label>
+  <label>Text Color: <input type="color" id="textColor" value="#000000"></label>
+  <label>Text Position:
+    <select id="textPosition">
+      <option value="top">Top</option>
+      <option value="bottom">Bottom</option>
+      <option value="left">Left</option>
+      <option value="right">Right</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="italic"> Italic</label>
+  <label><input type="checkbox" id="underline"> Underline</label>
+  <label><input type="checkbox" id="dropShadow"> Drop Shadow</label>
+  <label><input type="checkbox" id="glow"> Glow</label>
+  
+  <hr>
+  
+  <label>Watermark Text: <input type="text" id="watermarkText" placeholder="Watermark (optional)"></label>
+  <label>Upload Watermark Image: <input type="file" id="watermarkImage"></label>
+  <label>Watermark Opacity: <input type="range" id="watermarkOpacity" min="0" max="1" step="0.1" value="0.5"></label>
+</div>
+
+<button onclick="generateImage()">Generate Image</button>
+<br>
+<canvas id="canvas" width="800" height="600"></canvas>
+
+<script>
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  let baseImage = null;
+  let watermarkImg = null;
+
+  document.getElementById("imageUpload").addEventListener("change", function (e) {
+    const reader = new FileReader();
+    reader.onload = function (event) {
+      baseImage = new Image();
+      baseImage.onload = () => drawBase();
+      baseImage.src = event.target.result;
+    };
+    reader.readAsDataURL(e.target.files[0]);
+  });
+
+  document.getElementById("watermarkImage").addEventListener("change", function (e) {
+    const reader = new FileReader();
+    reader.onload = function (event) {
+      watermarkImg = new Image();
+      watermarkImg.src = event.target.result;
+    };
+    reader.readAsDataURL(e.target.files[0]);
+  });
+
+  function drawBase() {
+    if (!baseImage) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
+  }
+
+  function generateImage() {
+    if (!baseImage) return alert("Please upload an image first!");
+
+    drawBase();
+
+    // === Text Properties ===
+    const text = document.getElementById("customText").value;
+    const font = document.getElementById("fontFamily").value;
+    const size = parseInt(document.getElementById("textSize").value);
+    const color = document.getElementById("textColor").value;
+    const pos = document.getElementById("textPosition").value;
+    const italic = document.getElementById("italic").checked;
+    const underline = document.getElementById("underline").checked;
+    const shadow = document.getElementById("dropShadow").checked;
+    const glow = document.getElementById("glow").checked;
+
+    let fontStyle = italic ? "italic " : "";
+    fontStyle += `${size}px ${font}`;
+
+    ctx.font = fontStyle;
+    ctx.fillStyle = color;
+    ctx.textBaseline = "top";
+
+    if (shadow || glow) {
+      ctx.shadowColor = glow ? color : "#000";
+      ctx.shadowBlur = glow ? 10 : 4;
+      ctx.shadowOffsetX = shadow ? 2 : 0;
+      ctx.shadowOffsetY = shadow ? 2 : 0;
+    } else {
+      ctx.shadowColor = "transparent";
+    }
+
+    let x = 10, y = 10;
+    if (pos === "top") y = 10;
+    if (pos === "bottom") y = canvas.height - size - 10;
+    if (pos === "left") { x = 10; y = canvas.height / 2 - size / 2; }
+    if (pos === "right") { x = canvas.width - ctx.measureText(text).width - 10; y = canvas.height / 2 - size / 2; }
+
+    ctx.fillText(text, x, y);
+
+    // Underline
+    if (underline) {
+      const textWidth = ctx.measureText(text).width;
+      ctx.beginPath();
+      ctx.moveTo(x, y + size + 2);
+      ctx.lineTo(x + textWidth, y + size + 2);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    }
+
+    // === Watermark ===
+    const wmText = document.getElementById("watermarkText").value;
+    const wmOpacity = parseFloat(document.getElementById("watermarkOpacity").value);
+
+    ctx.globalAlpha = wmOpacity;
+
+    if (watermarkImg) {
+      const wmW = 100, wmH = 50;
+      ctx.drawImage(watermarkImg, canvas.width - wmW - 10, canvas.height - wmH - 10, wmW, wmH);
+    } else if (wmText) {
+      ctx.font = `italic 16px Arial`;
+      ctx.fillStyle = "#000";
+      ctx.fillText(wmText, canvas.width - 150, canvas.height - 25);
+    }
+
+    ctx.globalAlpha = 1.0;
+  }
+</script>
+</body>
+</html>
